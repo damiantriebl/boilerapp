@@ -29,9 +29,6 @@ dependencies:
   '@radix-ui/react-switch':
     specifier: ^1.1.2
     version: 1.1.2(@types/react-dom@19.0.2)(@types/react@19.0.2)(react-dom@19.0.0)(react@19.0.0)
-  '@types/bcrypt':
-    specifier: ^5.0.2
-    version: 5.0.2
   '@types/jsonwebtoken':
     specifier: ^9.0.7
     version: 9.0.7
@@ -925,12 +922,6 @@ packages:
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
     dependencies:
       tslib: 2.8.1
-    dev: false
-
-  /@types/bcrypt@5.0.2:
-    resolution: {integrity: sha512-6atioO8Y75fNcbmj0G7UjI9lXN2pQ/IGJ2FWT4a/btd0Lk9lQalHLKhkgKVZ3r+spnmWUKfbMi1GEe9wyHQfNQ==}
-    dependencies:
-      '@types/node': 20.17.11
     dev: false
 
   /@types/cookie@0.6.0:
