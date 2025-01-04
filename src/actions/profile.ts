@@ -3,13 +3,13 @@
 import { profileSchema } from "@/schemas";
 import { z } from "zod";
 import { currentUser } from "@/lib/auth";
-import { hashPassword, response } from "@/lib/utils";
+import { response } from "@/lib/utils";
 import { getUserByEmail, getUserById, updateUserById } from "@/services/user";
-import { update } from "@/auth";
 import { deleteTwoFactorConfirmationByUserId } from "@/services/two-factor-confirmation";
-import bcrypt from "bcryptjs";
 import { generateVerificationToken } from "@/services/verification-token";
-import { sendVerificationEmail } from "@/services/mail";
+import { sendVerificationEmail } from "@/services/mail"
+import { hashPassword, verifyPassword } from "@/lib/passwordHash";
+
 
 export const profile = async (payload: z.infer<typeof profileSchema>) => {
   // Check if user input is not valid, then return an error.
@@ -39,6 +39,15 @@ export const profile = async (payload: z.infer<typeof profileSchema>) => {
   }
 
   // Check if user does not exist in the database, then return an error.
+  if (!user.id) {
+    return response({
+      success: false,
+      error: {
+        code: 401,
+        message: "Unauthorized.",
+      },
+    });
+  }
   const existingUser = await getUserById(user.id);
   if (!existingUser) {
     return response({
@@ -92,7 +101,7 @@ export const profile = async (payload: z.infer<typeof profileSchema>) => {
   // Check if password entered
   if (password && newPassword && existingUser.password) {
     // Check if passwords doesn't matches, then return an error.
-    const isPasswordMatch = await bcrypt.compare(password, existingUser.password);
+    const isPasswordMatch = await verifyPassword(password, existingUser.password);
     if (!isPasswordMatch) {
       return response({
         success: false,
@@ -120,8 +129,6 @@ export const profile = async (payload: z.infer<typeof profileSchema>) => {
     isTwoFactorEnabled,
   });
 
-  // Update session
-  await update({ user: { ...updatedUser } });
 
   // Return response success.
   return response({

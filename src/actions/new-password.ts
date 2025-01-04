@@ -8,7 +8,8 @@ import {
 import { getUserByEmail, updateUserById } from "@/services/user";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { hashPassword, isExpired, response } from "@/lib/utils";
+import { isExpired, response } from "@/lib/utils";
+import { hashPassword } from "@/lib/passwordHash";
 
 export const newPassword = async (payload: z.infer<typeof newPasswordSchema>, token: string) => {
   // Check if user input is not valid, then return an error.

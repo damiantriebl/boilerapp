@@ -15,7 +15,7 @@ export const CredentialsProvider = Credentials({
       const user = await getUserByEmail(email);
       if (!user || !user.password) return null;
 
-      const passwordsMatch = await (password, user.password);
+      const passwordsMatch = await verifyPassword(password, user.password);
 
 
       if (passwordsMatch) return user;

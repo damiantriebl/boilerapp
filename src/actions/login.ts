@@ -1,4 +1,4 @@
-"use server";
+"use server"; // Si usas Server Actions en otro lado
 
 import { signIn } from "@/auth";
 import { loginSchema } from "@/schemas";
@@ -8,7 +8,6 @@ import { AuthError } from "next-auth";
 import { getUserByEmail } from "@/services/user";
 import { generateTwoFactorToken } from "@/services/two-factor-token";
 import { sendTwoFactorEmail } from "@/services/mail";
-import { cookies } from "next/headers";
 import {
   getTwoFactorConfirmationByUserId,
   deleteTwoFactorConfirmationById,
@@ -16,88 +15,7 @@ import {
 import { isExpired, response, signJwt } from "@/lib/utils";
 import { verifyPassword } from "@/lib/passwordHash";
 
-export const login = async (payload: z.infer<typeof loginSchema>) => {
-  // Check if user input is not valid, then return an error.
-  const validatedFields = loginSchema.safeParse(payload);
-  if (!validatedFields.success) {
-    return response({
-      success: false,
-      error: {
-        code: 422,
-        message: "Invalid fields.",
-      },
-    });
-  }
-
-  const { email, password } = validatedFields.data;
-
-  // Check if user, email and password doesn't exist, then return an error.
-  const existingUser = await getUserByEmail(email);
-  if (!existingUser || !existingUser.email || !existingUser.password) {
-    return response({
-      success: false,
-      error: {
-        code: 401,
-        message: "Invalid credentials.",
-      },
-    });
-  }
-
-  // Check if passwords doesn't matches, then return an error.
-  const isPasswordMatch = await verifyPassword(password, existingUser.password);
-  if (!isPasswordMatch) {
-    return response({
-      success: false,
-      error: {
-        code: 401,
-        message: "Invalid credentials.",
-      },
-    });
-  }
-
-  // Check if user email isn't verified yet, then return an error.
-  if (!existingUser.emailVerified) {
-    return response({
-      success: false,
-      error: {
-        code: 401,
-        message: "Your email address is not verified yet. Please check your email.",
-      },
-    });
-  }
-
-  // Check if user's 2FA are enabled
-  if (existingUser.isTwoFactorEnabled && existingUser.email) {
-    const existingTwoFactorConfirmation = await getTwoFactorConfirmationByUserId(existingUser.id);
-    const hasExpired = isExpired(existingTwoFactorConfirmation?.expires!);
-
-    // If two factor confirmation exist and expired, then delete it.
-    if (existingTwoFactorConfirmation && hasExpired) {
-      await deleteTwoFactorConfirmationById(existingTwoFactorConfirmation.id);
-    }
-
-    // If two factor confirmation doesn't exist or if two factor confirmation has expired, then handle 2fa
-    if (!existingTwoFactorConfirmation || hasExpired) {
-      const cookieStore = cookies();
-      const token = signJwt(validatedFields.data);
-      cookieStore.set("credentials-session", token);
-
-      const twoFactorToken = await generateTwoFactorToken(existingUser.email);
-      await sendTwoFactorEmail(twoFactorToken.email, twoFactorToken.token);
-
-      return response({
-        success: true,
-        code: 200,
-        message: "Please confirm your two-factor authentication code.",
-      });
-    }
-  }
-
-  // Then try to sign in with next-auth credentials.
-  return await signInCredentials(email, password);
-};
-
-// Sign in credentials from next-auth
+// == Mantén signInCredentials tal cual ==
 export const signInCredentials = async (email: string, password: string) => {
   try {
     await signIn("credentials", {
@@ -135,16 +53,7 @@ export const signInCredentials = async (email: string, password: string) => {
               message: "Verification failed. Please try again.",
             },
           });
-
-        case "AuthorizedCallbackError":
-          return response({
-            success: false,
-            error: {
-              code: 422,
-              message: "Authorization failed. Please try again.",
-            },
-          });
-
+      
         default:
           return response({
             success: false,
@@ -158,4 +67,81 @@ export const signInCredentials = async (email: string, password: string) => {
 
     throw error;
   }
+};
+
+// == Ajusta login para que DEVUELVA el token en lugar de setear la cookie directamente ==
+export const login = async (payload: z.infer<typeof loginSchema>) => {
+  const validatedFields = loginSchema.safeParse(payload);
+  if (!validatedFields.success) {
+    return response({
+      success: false,
+      error: {
+        code: 422,
+        message: "Invalid fields.",
+      },
+    });
+  }
+
+  const { email, password } = validatedFields.data;
+
+  const existingUser = await getUserByEmail(email);
+  if (!existingUser || !existingUser.email || !existingUser.password) {
+    return response({
+      success: false,
+      error: {
+        code: 401,
+        message: "Invalid credentials.",
+      },
+    });
+  }
+
+  const isPasswordMatch = await verifyPassword(password, existingUser.password);
+  if (!isPasswordMatch) {
+    return response({
+      success: false,
+      error: {
+        code: 401,
+        message: "Invalid credentials.",
+      },
+    });
+  }
+
+  if (!existingUser.emailVerified) {
+    return response({
+      success: false,
+      error: {
+        code: 401,
+        message: "Your email address is not verified yet. Please check your email.",
+      },
+    });
+  }
+
+  if (existingUser.isTwoFactorEnabled && existingUser.email) {
+    const existingTwoFactorConfirmation = await getTwoFactorConfirmationByUserId(existingUser.id);
+    const hasExpired = isExpired(existingTwoFactorConfirmation?.expires!);
+
+    if (existingTwoFactorConfirmation && hasExpired) {
+      await deleteTwoFactorConfirmationById(existingTwoFactorConfirmation.id);
+    }
+
+    if (!existingTwoFactorConfirmation || hasExpired) {
+      // Genera el token, pero NO lo seteamos aquí
+      const token = signJwt(validatedFields.data);
+
+      const twoFactorToken = await generateTwoFactorToken(existingUser.email);
+      await sendTwoFactorEmail(twoFactorToken.email, twoFactorToken.token);
+
+      return response({
+        success: true,
+        code: 200,
+        message: "Please confirm your two-factor authentication code.",
+        data: {
+          token, // <-- Devolvemos el token para que el route handler sepa que escribir
+        }
+      });
+    }
+  }
+
+  // Si no hay 2FA, next-auth credentials
+  return await signInCredentials(email, password);
 };

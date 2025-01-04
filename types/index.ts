@@ -37,6 +37,7 @@ type ResponseError = {
     code: ResponseCode;
     type?: ErrorType;
     message: string;
+    token?: string
   };
 };
 
@@ -57,4 +58,20 @@ export type ResponseSuccess<T> =
     }
   | ResponseError;
 
+
 export type Response<T = boolean> = T extends object ? ResponseSuccess<T> : ResponseWithMessage;
+
+type SegmentParams<T extends object = any> = T extends Record<string, any>
+? {
+    [K in keyof T]: T[K] extends string
+      ? string | string[] | undefined
+      : never
+  }
+: T
+
+export interface PageProps {
+  params?: Promise<SegmentParams>
+  searchParams?: Promise<SegmentParams<{ token: string }>>
+}
+
+export type UserRole = "Admin" | "User";
